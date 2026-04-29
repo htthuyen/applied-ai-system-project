@@ -38,12 +38,33 @@ class Recommender:
         self.songs = songs
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
-        # TODO: Implement recommendation logic
-        return self.songs[:k]
+        user_prefs = {
+            "genre": user.favorite_genre,
+            "mood": user.favorite_mood,
+            "energy": user.target_energy,
+        }
+        scored = []
+        for song in self.songs:
+            score, _ = score_song(
+                user_prefs,
+                {"genre": song.genre, "mood": song.mood, "energy": song.energy},
+            )
+            scored.append((score, song))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [song for _, song in scored[:k]]
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
-        # TODO: Implement explanation logic
-        return "Explanation placeholder"
+        user_prefs = {
+            "genre": user.favorite_genre,
+            "mood": user.favorite_mood,
+            "energy": user.target_energy,
+        }
+        score, reasons = score_song(
+            user_prefs,
+            {"genre": song.genre, "mood": song.mood, "energy": song.energy},
+        )
+        reason_text = ", ".join(reasons) if reasons else "energy proximity only"
+        return f"Score {score:.2f}: {reason_text}"
 
 def load_songs(csv_path: str) -> List[Dict]:
     """
