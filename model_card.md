@@ -1,20 +1,20 @@
-# 🎧 Model Card - Music Recommender Simulation
+# 🎧 Model Card - VibeMatch
 
 ## 1. Model Name
 
-> Song 1.0
+> VibeMatch 2.0
 
 ---
 
 ## 2. Intended Use
 
-> This model suggests up to 5 songs from a 20-song catalog based on a user's preferred genre, mood, and energy level. It is for classroom exploration only, not for real users.
+> This model suggests up to 5 songs from a 20-song catalog based on a natural language description of what the user wants to hear. It is for classroom exploration only, not for real users.
 
 ---
 
 ## 3. How It Works (Short Explanation)
 
-> The model scores each song by comparing it against the user's preferences across three features. Genre and mood are matched exactly — a match scores full points, a mismatch scores zero. Energy is scored by proximity: the closer the song's energy is to the user's target, the higher the score. Each feature is multiplied by a weight (genre: 0.50, mood: 0.30, energy: 0.20) and summed into a final score. Songs are then ranked from highest to lowest, and the top results are returned.
+> The system has two modes. In **RAG mode**, each song in the catalog is converted into a text description and embedded into a local vector store (ChromaDB) using the `all-MiniLM-L6-v2` model. When a user types a natural language query, ChromaDB finds the 5 songs whose embeddings are closest to the query embedding and returns them. No API key or internet connection is required after the model downloads once. In **Classic mode**, the user selects genre, mood, and energy manually. The system scores each song using a weighted formula (genre: 0.50, mood: 0.30, energy: 0.20) and returns the top 5.
 
 ---
 
@@ -58,4 +58,20 @@ The system was evaluated by running it with a pop/happy/high-energy user profile
 
 ## 9. Personal Reflection
 
-Building this system made it clear how much the design of a scoring rule shapes what users see. Choosing to weight genre at 0.50 × 2.0 meant that genre became the single most important factor — a decision that seemed reasonable but could easily be unfair to users whose taste cuts across genres. Human judgment matters not just in writing the algorithm, but in questioning the assumptions behind each weight. A model can only reflect the priorities its designer built into it, which is why transparency and the ability to explain every score are so important.
+### Limitations and Biases
+
+The system has several meaningful limitations. The catalog is only 20 songs — far too small to serve diverse users, and some genres appear only once, which means certain queries will return mediocre matches simply because nothing better exists. In RAG mode, the embedding model (`all-MiniLM-L6-v2`) was trained on general English text, not music descriptions, so it may treat words like "chill" and "peaceful" as more different than a music listener would. In Classic mode, genre matching is binary — "indie pop" and "pop" score zero overlap — which penalizes closely related genres unfairly. Neither mode learns from user feedback, so the system cannot improve over time or adapt to individual taste.
+
+### Potential Misuse and Prevention
+
+A music recommender at this scale has limited misuse potential, but two cases are worth noting. First, if the catalog were editable, a bad actor could tag songs with misleading metadata to manipulate what surfaces for a given query. Preventing this requires validating and locking the catalog to trusted sources. Second, the embedding model could reflect cultural biases in what it considers "similar" — for example, associating certain vibes with certain demographics in ways the system designer didn't intend. Auditing retrieval results across diverse queries before deployment would help surface these patterns.
+
+### What Surprised Me During Testing
+
+The biggest surprise was how sensitive ChromaDB was to collection naming. During testing, reusing the same collection name across test functions caused state to bleed between tests — a test that should have stored 5 songs was seeing results from a previous test's 20-song collection. The fix was simple (pass a unique `collection_name` per test) but the failure was silent — no error, just wrong counts. This taught me that in-memory stores are not as stateless as they feel when test isolation is not enforced explicitly. I also did not expect the embedding model to handle vague queries as well as it did — *"something for a rainy afternoon"* returned folk and acoustic songs without any explicit genre or mood label pointing there.
+
+### Collaboration with AI
+
+I used Claude as a coding assistant throughout this project. One instance where it was genuinely helpful was when I asked how to structure the RAG pipeline — it suggested separating the embedding logic (`embedder.py`) from the retrieval and generation logic (`rag.py`) rather than putting everything in one file. That separation made it much easier to test each part independently and mock only what needed mocking.
+
+One instance where its suggestion was flawed was early on, when it suggested keeping Claude in the pipeline to re-rank the retrieved songs by parsing the query into structured genre and mood hints. In practice this added complexity without meaningfully improving results — the embedding search already captured the right vibe, and re-ranking with binary genre matching actually hurt results for queries that crossed genre boundaries. Removing Claude from the pipeline entirely produced cleaner, simpler code and results that were just as good.
