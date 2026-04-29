@@ -41,8 +41,7 @@ songs.csv ──► Embedder ──► ChromaDB (vector index, built once)
 User query
   └──► ChromaDB semantic search ──► top-5 songs ──► User
 ```
-
-![alt text](image.png)
+![Alt text](assets/image.png)
 
 | Component | File | Role |
 |---|---|---|
